@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ACCESS2TECH - CRM Workspace</title>
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700&display=swap');
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: #f8fafc; }
+        .custom-scroll::-webkit-scrollbar { width: 5px; height: 5px; }
+        .custom-scroll::-webkit-scrollbar-track { background: transparent; }
+        .custom-scroll::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 20px; }
+    </style>
+</head>
+<body class="text-slate-800 antialiased overflow-hidden h-screen flex">
+
+    <input type="file" id="restoreFileInput" accept=".json" class="hidden" onchange="restoreData(event)">
+
+    <div class="flex flex-1 w-full h-full overflow-hidden">
+        
+        <aside class="w-80 bg-slate-950 text-slate-300 flex flex-col h-full border-r border-slate-900 shadow-2xl relative shrink-0">
+            <div class="p-6 border-b border-slate-900 flex items-center justify-between">
+                <div class="flex items-center space-x-3">
+                    <div class="h-10 w-10 bg-gradient-to-tr from-emerald-500 to-teal-400 rounded-xl flex items-center justify-center text-white font-bold text-xl shadow-lg shadow-emerald-500/20">A</div>
+                    <div>
+                        <h1 class="text-white font-bold text-sm tracking-wide">ACCESS2TECH</h1>
+                        <span class="text-[10px] text-emerald-400 font-semibold tracking-wider uppercase block">Database Protected</span>
+                    </div>
+                </div>
+            </div>
+
+            <div class="p-4 border-b border-slate-900 bg-slate-900/40">
+                <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider mb-2">City / Territory Filter</div>
+                <select id="sheetDropdown" class="w-full bg-slate-900 border border-slate-800 text-slate-200 text-xs rounded-lg p-3 focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition cursor-pointer">
+                    <option value="ALL">All Cities & Territories</option>
+                </select>
+            </div>
+
+            <div class="text-xs font-semibold text-slate-500 uppercase tracking-wider px-6 pt-4 pb-2 flex justify-between items-center">
+                <span>City Directory</span>
+                <button onclick="clearAllData()" class="text-[9px] text-rose-400 hover:text-rose-300 bg-rose-500/10 px-2 py-1 rounded transition">Clear All Data</button>
+            </div>
+            <div class="flex-1 overflow-y-auto custom-scroll px-3 pb-6 space-y-0.5" id="sidebarListContainer">
+                </div>
+        </aside>
+
+        <main class="flex-1 flex flex-col h-full bg-slate-50 overflow-hidden">
+            
+            <header class="bg-white border-b border-slate-200 h-16 min-h-16 flex items-center justify-between px-8 z-20 shadow-xs">
+                <div class="w-1/2 max-w-lg relative">
+                    <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 text-slate-400 text-sm">🕵️</span>
+                    <input type="text" id="liveSearchInput" placeholder="Search customer name, city, phone, or agent..." 
+                           class="w-full pl-10 pr-4 py-2 border border-slate-200 rounded-xl text-xs bg-slate-50/70 focus:bg-white focus:ring-2 focus:ring-emerald-500 focus:border-emerald-500 outline-none transition">
+                </div>
+                
+                <div class="flex items-center space-x-3">
+                    <div class="relative">
+                        <select id="sortDataDropdown" class="appearance-none bg-white border border-slate-200 text-slate-600 text-xs font-semibold rounded-xl px-4 py-2 pr-8 hover:bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none transition cursor-pointer shadow-sm">
+                            <option value="default">↕️ Default Order</option>
+                            <option value="city_asc">🏢 City (A to Z)</option>
+                            <option value="city_desc">🏢 City (Z to A)</option>
+                            <option value="name_asc">👤 Name (A to Z)</option>
+                        </select>
+                        <div class="pointer-events-none absolute inset-y-0 right-0 flex items-center px-2 text-slate-400">
+                            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+                        </div>
+                    </div>
+
+                    <input type="file" id="excelFileInput" accept=".xlsx, .xls" class="hidden" onchange="handleExcelUpload(event)">
+                    
+                    <button onclick="document.getElementById('excelFileInput').click()" class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-4 py-2 rounded-xl shadow-md shadow-emerald-600/20 transition flex items-center space-x-1 border border-emerald-500">
+                        <span>📊</span> <span>Import Excel</span>
+                    </button>
+
+                    <button onclick="openModalContext(true, true)" class="bg-slate-800 hover:bg-slate-900 text-white text-xs font-semibold px-4 py-2 rounded-xl shadow-md transition flex items-center space-x-1">
+                        <span>+ Add Manual</span>
+                    </button>
+                </div>
+            </header>
+
+            <div class="flex-1 overflow-y-auto p-8 custom-scroll space-y-6">
+                
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-xs flex items-center space-x-4">
+                        <div class="h-12 w-12 bg-emerald-50 text-emerald-600 rounded-xl flex items-center justify-center text-lg font-bold">🏢</div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Total Customers</p>
+                            <h3 class="text-2xl font-bold text-slate-900 tracking-tight" id="metricTotalClients">0</h3>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-xs flex items-center space-x-4">
+                        <div class="h-12 w-12 bg-indigo-50 text-indigo-600 rounded-xl flex items-center justify-center text-lg font-bold">🗺️</div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Cities Categorized</p>
+                            <h3 class="text-2xl font-bold text-slate-900 tracking-tight" id="metricTotalRegions">0</h3>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-xs flex items-center space-x-4">
+                        <div class="h-12 w-12 bg-amber-50 text-amber-600 rounded-xl flex items-center justify-center text-lg font-bold">🛡️</div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Assigned Agents</p>
+                            <h3 class="text-2xl font-bold text-slate-900 tracking-tight" id="metricTotalAgents">0</h3>
+                        </div>
+                    </div>
+                    <div class="bg-white p-5 rounded-2xl border border-slate-200/60 shadow-xs flex items-center space-x-4">
+                        <div class="h-12 w-12 bg-rose-50 text-rose-600 rounded-xl flex items-center justify-center text-lg font-bold">📊</div>
+                        <div>
+                            <p class="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">Filtered View Count</p>
+                            <h3 class="text-2xl font-bold text-emerald-600 tracking-tight" id="metricCurrentView">0</h3>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="bg-white rounded-2xl border border-slate-200 shadow-xs overflow-hidden flex flex-col">
+                    <div class="px-6 py-4 border-b border-slate-100 bg-slate-50/60 flex flex-col sm:flex-row justify-between items-center space-y-3 sm:space-y-0">
+                        <div>
+                            <h2 class="font-bold text-sm text-slate-800" id="currentScopeTitle">Global Directory Matrix</h2>
+                            <p class="text-[11px] text-slate-400 mt-0.5">Manage, backup, and restore your complete customer database.</p>
+                        </div>
+                        <div class="flex items-center space-x-2">
+                            <button onclick="document.getElementById('restoreFileInput').click()" class="text-[10px] bg-white text-indigo-700 font-semibold px-3 py-1.5 rounded-lg border border-indigo-200 shadow-sm hover:bg-indigo-50 transition">📂 Restore</button>
+                            
+                            <button onclick="backupData()" class="text-[10px] bg-indigo-600 text-white font-semibold px-3 py-1.5 rounded-lg border border-indigo-700 shadow-sm hover:bg-indigo-700 transition">💾 Backup JSON</button>
+                            
+                            <button onclick="exportToCSV()" class="text-[10px] bg-white text-slate-700 font-semibold px-3 py-1.5 rounded-lg border border-slate-200 shadow-sm hover:bg-slate-50 transition">📥 Export CSV</button>
+                            
+                            <span id="badgeCounter" class="text-[10px] bg-emerald-100 text-emerald-800 font-semibold px-2.5 py-1.5 rounded-lg border border-emerald-200 flex items-center">0 Items</span>
+                        </div>
+                    </div>
+
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-slate-50/50 text-slate-400 uppercase text-[10px] font-bold tracking-wider border-b border-slate-100">
+                                    <th class="py-3 px-6">Customer / Corporate entity</th>
+                                    <th class="py-3 px-6">Representative</th>
+                                    <th class="py-3 px-6">Contact Number</th>
+                                    <th class="py-3 px-6">City & Address Metrics</th>
+                                    <th class="py-3 px-6">Assigned Manager</th>
+                                    <th class="py-3 px-6 text-right">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="workspaceTableBody" class="divide-y divide-slate-100 text-xs text-slate-600">
+                                </tbody>
+                        </table>
+                    </div>
+
+                    <div id="noResultsFallback" class="hidden text-center py-16 bg-white space-y-2">
+                        <div class="text-4xl mb-3">📁</div>
+                        <p class="text-sm font-semibold text-slate-700">No records found or database is empty</p>
+                        <p class="text-xs text-slate-400">Please add manual entry, import an Excel file, or <span class="text-indigo-600 font-bold cursor-pointer" onclick="document.getElementById('restoreFileInput').click()">Restore a Backup</span>.</p>
+                    </div>
+                </div>
+            </div>
+
+            <footer class="bg-white border-t border-slate-200 py-3 mt-auto flex items-center justify-center z-10 shadow-[0_-4px_6px_-1px_rgba(0,0,0,0.02)]">
+                <p class="text-[11px] font-bold text-slate-500 tracking-wide">
+                    Design & Developed by <span class="text-emerald-600">Tijara LLC</span>- @Hafiz
+                </p>
+            </footer>
+
+        </main>
+    </div>
+
+    <div id="entryFormModal" class="fixed inset-0 bg-slate-950/40 backdrop-blur-xs hidden items-center justify-center z-50">
+        <div class="bg-white rounded-2xl shadow-2xl border border-slate-100 w-[550px] max-w-full overflow-hidden transform transition-all">
+            <div class="px-6 py-4 border-b border-slate-100 flex justify-between items-center bg-slate-50/80">
+                <div>
+                    <h3 id="modalFormTitle" class="font-bold text-slate-900 text-sm">Manual Account Registration</h3>
+                </div>
+                <button onclick="openModalContext(false)" class="text-slate-400 hover:text-slate-600 text-lg">&times;</button>
+            </div>
+            <form id="modalFormSubmit" class="p-6 space-y-4">
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Customer Name *</label>
+                    <input type="text" id="mFormName" required class="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none transition">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Contact Person</label>
+                        <input type="text" id="mFormContact" class="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Phone Number</label>
+                        <input type="text" id="mFormPhone" class="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none transition">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Street Address</label>
+                    <input type="text" id="mFormAddress" class="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none transition">
+                </div>
+                <div class="grid grid-cols-2 gap-4">
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Postal Code</label>
+                        <input type="text" id="mFormPostal" class="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none transition">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">City Name (Category) *</label>
+                        <input type="text" id="mFormRegion" required placeholder="e.g. Paris" class="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none transition">
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-[10px] font-bold text-slate-500 uppercase tracking-wide mb-1">Field Agent</label>
+                    <input type="text" id="mFormAgent" placeholder="Agent Name" class="w-full border border-slate-200 rounded-xl p-2.5 text-xs focus:ring-2 focus:ring-emerald-500 outline-none transition">
+                </div>
+                <div class="pt-4 border-t border-slate-100 flex justify-end space-x-2.5">
+                    <button type="button" onclick="openModalContext(false)" class="px-4 py-2 border border-slate-200 rounded-xl text-xs font-semibold text-slate-600 hover:bg-slate-50 transition">Cancel</button>
+                    <button type="submit" id="modalSubmitBtn" class="px-4 py-2 bg-emerald-600 hover:bg-emerald-700 text-white rounded-xl text-xs font-semibold shadow-md transition">Save Registration</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <script>
+        // Data States
+        let appRegistry = JSON.parse(localStorage.getItem('nexus_crm_data')) || [];
+        let currentActiveScope = "ALL";
+        let currentSortMode = "default";
+        
+        // Tracking Edit State
+        let currentEditingIndex = null;
+
+        document.addEventListener('DOMContentLoaded', () => {
+            initializeWorkspaceDirectories();
+            renderWorkspaceMatrix();
+
+            document.getElementById('liveSearchInput').addEventListener('input', renderWorkspaceMatrix);
+            document.getElementById('sheetDropdown').addEventListener('change', (e) => {
+                currentActiveScope = e.target.value;
+                synchronizeActiveUIState();
+                renderWorkspaceMatrix();
+            });
+            document.getElementById('sortDataDropdown').addEventListener('change', (e) => {
+                currentSortMode = e.target.value;
+                renderWorkspaceMatrix();
+            });
+            document.getElementById('modalFormSubmit').addEventListener('submit', commitRegistryEntry);
+        });
+
+        // ==========================================
+        // DATA BACKUP & RESTORE ENGINE
+        // ==========================================
+        window.backupData = function() {
+            if(appRegistry.length === 0) {
+                alert("No data available to backup!");
+                return;
+            }
+            const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(appRegistry, null, 2));
+            const downloadAnchorNode = document.createElement('a');
+            downloadAnchorNode.setAttribute("href", dataStr);
+            
+            const date = new Date();
+            const dateString = `${date.getFullYear()}-${date.getMonth()+1}-${date.getDate()}`;
+            downloadAnchorNode.setAttribute("download", `ACCESS2TECH_Backup_${dateString}.json`);
+            
+            document.body.appendChild(downloadAnchorNode); 
+            downloadAnchorNode.click();
+            downloadAnchorNode.remove();
+        }
+
+        window.restoreData = function(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const importedData = JSON.parse(e.target.result);
+                    if (Array.isArray(importedData)) {
+                        if (confirm("Click 'OK' to MERGE this backup with your existing data.\nClick 'Cancel' to OVERWRITE and replace all existing data.")) {
+                            appRegistry = [...importedData, ...appRegistry];
+                        } else {
+                            appRegistry = importedData;
+                        }
+                        
+                        localStorage.setItem('nexus_crm_data', JSON.stringify(appRegistry));
+                        initializeWorkspaceDirectories();
+                        renderWorkspaceMatrix();
+                        alert(`✅ Successfully restored ${importedData.length} customer records!`);
+                    } else {
+                        alert("Invalid backup format! Please upload a valid JSON backup file.");
+                    }
+                } catch (error) {
+                    alert("Error reading file! The file might be corrupted or not a valid JSON backup.");
+                    console.error(error);
+                }
+                event.target.value = ''; 
+            };
+            reader.readAsText(file);
+        }
+
+        // ==========================================
+        // EXCEL PARSING ENGINE
+        // ==========================================
+        function handleExcelUpload(event) {
+            const file = event.target.files[0];
+            if (!file) return;
+
+            const reader = new FileReader();
+            reader.onload = function(e) {
+                try {
+                    const data = new Uint8Array(e.target.result);
+                    const workbook = XLSX.read(data, {type: 'array'});
+                    
+                    let newlyExtractedCustomers = [];
+                    
+                    workbook.SheetNames.forEach(sheetName => {
+                        const worksheet = workbook.Sheets[sheetName];
+                        const rows = XLSX.utils.sheet_to_json(worksheet, {header: 1}); 
+                        
+                        rows.forEach((row) => {
+                            if (!row || row.length === 0) return; 
+                            
+                            let custName = row[0] ? String(row[0]).trim() : "";
+                            if (!custName || custName.toLowerCase() === 'nan' || custName === '0' || custName.toLowerCase().includes('customer name')) return; 
+                            
+                            let custCity = row[5] ? String(row[5]).trim() : "";
+                            if (!custCity || custCity === '0' || custCity.toLowerCase() === 'nan') {
+                                custCity = sheetName === 'Sheet1' ? 'General Region' : sheetName;
+                            }
+
+                            newlyExtractedCustomers.push({
+                                name: custName,
+                                contact_person: row[1] ? String(row[1]).trim() : "",
+                                phone: row[2] ? String(row[2]).trim() : "",
+                                address: row[3] ? String(row[3]).trim() : "",
+                                postal_code: row[4] ? String(row[4]).trim() : "",
+                                city: custCity,
+                                region: sheetName,
+                                agent: row[7] ? String(row[7]).trim() : "House Account"
+                            });
+                        });
+                    });
+                    
+                    appRegistry = [...newlyExtractedCustomers, ...appRegistry];
+                    localStorage.setItem('nexus_crm_data', JSON.stringify(appRegistry));
+                    
+                    currentActiveScope = "ALL";
+                    document.getElementById('sheetDropdown').value = "ALL";
+                    initializeWorkspaceDirectories();
+                    renderWorkspaceMatrix();
+                    
+                    alert(`✅ Success! Extracted ${newlyExtractedCustomers.length} customers from the Excel file.`);
+                    event.target.value = ''; 
+                } catch (error) {
+                    alert("Error reading Excel file. Please ensure it's a valid .xlsx or .xls file.");
+                    console.error(error);
+                }
+            };
+            reader.readAsArrayBuffer(file);
+        }
+
+        // ==========================================
+        // UI & MATRIX RENDER LOGIC
+        // ==========================================
+        function initializeWorkspaceDirectories() {
+            const dropdown = document.getElementById('sheetDropdown');
+            const sidebarContainer = document.getElementById('sidebarListContainer');
+            
+            const cities = [...new Set(appRegistry.map(item => item.city))].sort();
+            
+            dropdown.innerHTML = '<option value="ALL">All Cities & Territories</option>';
+            sidebarContainer.innerHTML = '';
+
+            createSidebarRowElement("ALL", appRegistry.length);
+
+            cities.forEach(cityName => {
+                if(!cityName) return;
+                const optionEl = document.createElement('option');
+                optionEl.value = cityName;
+                optionEl.textContent = `City: ${cityName}`;
+                dropdown.appendChild(optionEl);
+
+                const itemLength = appRegistry.filter(i => i.city === cityName).length;
+                createSidebarRowElement(cityName, itemLength);
+            });
+        }
+
+        function createSidebarRowElement(cityLabel, size) {
+            const container = document.getElementById('sidebarListContainer');
+            const row = document.createElement('div');
+            
+            const isSelected = currentActiveScope === cityLabel;
+            row.className = `flex items-center justify-between px-3 py-2.5 rounded-xl text-xs font-medium cursor-pointer transition-all duration-150 ${isSelected ? 'bg-emerald-600 text-white font-semibold shadow-lg shadow-emerald-600/10' : 'text-slate-400 hover:bg-slate-900 hover:text-slate-200'}`;
+            
+            row.onclick = () => {
+                currentActiveScope = cityLabel;
+                document.getElementById('sheetDropdown').value = cityLabel;
+                synchronizeActiveUIState();
+                renderWorkspaceMatrix();
+            };
+
+            row.innerHTML = `
+                <span class="flex items-center space-x-2">
+                    <span class="opacity-70 text-slate-400 ${isSelected ? 'text-white' : ''}">📍</span>
+                    <span class="truncate max-w-[160px]">${cityLabel === 'ALL' ? 'Global Multi-City Database' : cityLabel}</span>
+                </span>
+                <span class="text-[10px] bg-slate-900 text-slate-400 px-2 py-0.5 rounded-md border border-slate-800/60 ${isSelected ? 'bg-emerald-700 text-emerald-100 border-emerald-500/30' : ''}">${size}</span>
+            `;
+            container.appendChild(row);
+        }
+
+        function synchronizeActiveUIState() { initializeWorkspaceDirectories(); }
+
+        function renderWorkspaceMatrix() {
+            const lookupQuery = document.getElementById('liveSearchInput').value.toLowerCase();
+            const tableBody = document.getElementById('workspaceTableBody');
+            const fallbackContainer = document.getElementById('noResultsFallback');
+            
+            let computedResult = appRegistry.filter(entry => {
+                const scopeMatch = (currentActiveScope === "ALL" || entry.city === currentActiveScope);
+                const queryMatch = !lookupQuery || 
+                    entry.name.toLowerCase().includes(lookupQuery) ||
+                    entry.phone.toLowerCase().includes(lookupQuery) ||
+                    entry.address.toLowerCase().includes(lookupQuery) ||
+                    entry.agent.toLowerCase().includes(lookupQuery) ||
+                    entry.contact_person.toLowerCase().includes(lookupQuery) ||
+                    entry.city.toLowerCase().includes(lookupQuery);
+                return scopeMatch && queryMatch;
+            });
+
+            if (currentSortMode === "city_asc") {
+                computedResult.sort((a, b) => (a.city || "").localeCompare(b.city || ""));
+            } else if (currentSortMode === "city_desc") {
+                computedResult.sort((a, b) => (b.city || "").localeCompare(a.city || ""));
+            } else if (currentSortMode === "name_asc") {
+                computedResult.sort((a, b) => (a.name || "").localeCompare(b.name || ""));
+            }
+
+            document.getElementById('metricTotalClients').textContent = appRegistry.length;
+            document.getElementById('metricTotalRegions').textContent = [...new Set(appRegistry.map(c => c.city))].length;
+            document.getElementById('metricTotalAgents').textContent = [...new Set(appRegistry.map(c => c.agent))].filter(a => a && a !== 'House Account' && a !== '0').length;
+            document.getElementById('metricCurrentView').textContent = computedResult.length;
+            
+            document.getElementById('currentScopeTitle').textContent = currentActiveScope === "ALL" ? "Global Overview" : `City Matrix: ${currentActiveScope}`;
+            document.getElementById('badgeCounter').textContent = `${computedResult.length} Clients`;
+
+            tableBody.innerHTML = '';
+            if (computedResult.length === 0) {
+                fallbackContainer.classList.remove('hidden');
+                return;
+            }
+            fallbackContainer.classList.add('hidden');
+
+            computedResult.forEach((client) => {
+                const actualGlobalIndex = appRegistry.indexOf(client);
+                const rowElement = document.createElement('tr');
+                rowElement.className = "hover:bg-slate-50/80 transition-colors border-b border-slate-100/70";
+                
+                rowElement.innerHTML = `
+                    <td class="py-3.5 px-6 font-semibold text-slate-900">
+                        <div>${client.name}</div>
+                    </td>
+                    <td class="py-3.5 px-6 text-slate-500 font-medium">${client.contact_person || '<span class="text-slate-300 italic">None</span>'}</td>
+                    <td class="py-3.5 px-6 font-mono tracking-tight text-slate-600">${client.phone && client.phone !== '0' ? client.phone : '<span class="text-slate-300">—</span>'}</td>
+                    <td class="py-3.5 px-6">
+                        <div class="text-slate-700 font-medium max-w-xs truncate">${client.address && client.address !== '0' ? client.address : '<span class="text-slate-300 italic">No address</span>'}</div>
+                        <div class="text-[11px] text-slate-500 font-bold mt-0.5"><span class="text-emerald-600">📍 ${client.city}</span> <span class="ml-1 text-slate-300 font-normal">| Zip: ${client.postal_code && client.postal_code !== '0' ? client.postal_code : 'N/A'}</span></div>
+                    </td>
+                    <td class="py-3.5 px-6">
+                        <span class="inline-flex items-center px-2.5 py-1 rounded-lg text-[10px] font-semibold bg-slate-100 text-slate-700 border border-slate-200/50">
+                            💼 ${client.agent && client.agent !== '0' ? client.agent : 'Unassigned'}
+                        </span>
+                    </td>
+                    <td class="py-3.5 px-6 text-right whitespace-nowrap space-x-1">
+                        <button onclick="editRegistryRecord(${actualGlobalIndex})" class="text-indigo-600 hover:text-indigo-900 font-semibold text-[11px] bg-indigo-50 hover:bg-indigo-100 px-3 py-1.5 rounded-lg transition">
+                            Edit
+                        </button>
+                        <button onclick="purgeRegistryRecord(${actualGlobalIndex})" class="text-rose-600 hover:text-rose-900 font-semibold text-[11px] bg-rose-50 hover:bg-rose-100 px-3 py-1.5 rounded-lg transition">
+                            Del
+                        </button>
+                    </td>
+                `;
+                tableBody.appendChild(rowElement);
+            });
+        }
+
+        // ==========================================
+        // EDIT, ADD, & MODAL ENGINE
+        // ==========================================
+        function openModalContext(displayState, isAddMode = false) {
+            const modal = document.getElementById('entryFormModal');
+            if(displayState) {
+                modal.classList.remove('hidden');
+                modal.classList.add('flex');
+                
+                if(isAddMode) {
+                    currentEditingIndex = null;
+                    document.getElementById('modalFormSubmit').reset();
+                    document.getElementById('modalFormTitle').textContent = "Manual Account Registration";
+                    document.getElementById('modalSubmitBtn').textContent = "Save Registration";
+                }
+            } else {
+                modal.classList.remove('flex');
+                modal.classList.add('hidden');
+            }
+        }
+
+        window.editRegistryRecord = function(globalIndex) {
+            currentEditingIndex = globalIndex;
+            const client = appRegistry[globalIndex];
+
+            document.getElementById('mFormName').value = client.name || "";
+            document.getElementById('mFormContact').value = client.contact_person || "";
+            document.getElementById('mFormPhone').value = client.phone || "";
+            document.getElementById('mFormAddress').value = client.address || "";
+            document.getElementById('mFormPostal').value = client.postal_code || "";
+            document.getElementById('mFormRegion').value = client.city || "";
+            document.getElementById('mFormAgent').value = client.agent || "";
+
+            document.getElementById('modalFormTitle').textContent = "Update Customer Profile";
+            document.getElementById('modalSubmitBtn').textContent = "Save Changes";
+
+            openModalContext(true, false);
+        }
+
+        function commitRegistryEntry(event) {
+            event.preventDefault();
+            const targetedCityName = document.getElementById('mFormRegion').value.trim();
+            const newRecordObject = {
+                name: document.getElementById('mFormName').value.trim(),
+                contact_person: document.getElementById('mFormContact').value.trim(),
+                phone: document.getElementById('mFormPhone').value.trim(),
+                address: document.getElementById('mFormAddress').value.trim(),
+                postal_code: document.getElementById('mFormPostal').value.trim(),
+                city: targetedCityName,
+                region: targetedCityName,
+                agent: document.getElementById('mFormAgent').value.trim() || "House Account"
+            };
+
+            if(currentEditingIndex !== null) {
+                appRegistry[currentEditingIndex] = { ...appRegistry[currentEditingIndex], ...newRecordObject };
+            } else {
+                appRegistry.unshift(newRecordObject);
+            }
+
+            localStorage.setItem('nexus_crm_data', JSON.stringify(appRegistry));
+            
+            currentEditingIndex = null;
+            initializeWorkspaceDirectories();
+            renderWorkspaceMatrix();
+            openModalContext(false);
+        }
+
+        // ==========================================
+        // UTILITY FUNCTIONS (DELETE & EXPORT CSV)
+        // ==========================================
+        window.purgeRegistryRecord = function(globalIndex) {
+            if(confirm('Delete this record permanently?')) {
+                appRegistry.splice(globalIndex, 1);
+                localStorage.setItem('nexus_crm_data', JSON.stringify(appRegistry));
+                initializeWorkspaceDirectories();
+                renderWorkspaceMatrix();
+            }
+        }
+
+        window.clearAllData = function() {
+            if(confirm('WARNING: Are you sure you want to delete ALL data? Make sure you have downloaded a Backup first!')) {
+                appRegistry = [];
+                localStorage.removeItem('nexus_crm_data');
+                initializeWorkspaceDirectories();
+                renderWorkspaceMatrix();
+            }
+        }
+
+        window.exportToCSV = function() {
+            if(appRegistry.length === 0) return alert("No data available to export.");
+            let outputCsvBody = "Customer Name,Contact Person,Phone,Address,Postal Code,City,Agent\n";
+            appRegistry.forEach(item => {
+                outputCsvBody += `"${(item.name||'').replace(/"/g, '""')}","${(item.contact_person||'').replace(/"/g, '""')}","${item.phone||''}","${(item.address||'').replace(/"/g, '""')}","${item.postal_code||''}","${item.city||''}","${item.agent||''}"\n`;
+            });
+            const blobFile = new Blob([outputCsvBody], { type: 'text/csv;charset=utf-8;' });
+            const anchorLink = document.createElement("a");
+            anchorLink.href = URL.createObjectURL(blobFile);
+            anchorLink.download = `ACCESS2TECH_Master_Report.csv`;
+            anchorLink.style.display = 'none';
+            document.body.appendChild(anchorLink);
+            anchorLink.click();
+            document.body.removeChild(anchorLink);
+        }
+    </script>
+</body>
+</html>
